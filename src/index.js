@@ -6,19 +6,21 @@ const { preProcess } = require('./preprocessor');
 const { processText } = require('./ai');
 const { typeText } = require('./typer');
 
-// Gemini returns these artifacts for silent/empty audio
-const SILENCE_RE = /^(\d{1,2}:\d{2}|\[silence\]|\[no speech\]|\[inaudible\]|silence)$/i;
+const SILENCE_RE = /^(\[silence\]|\[no speech\]|\[inaudible\]|silence)$/i;
 
 function isSilence(text) {
   return !text || text.trim().length < 2 || SILENCE_RE.test(text.trim());
 }
 
 function printBanner() {
+  const config = require('./config');
+  const providerName = { groq: 'Groq', gemini: 'Gemini', claude: 'Claude' }[config.activeProvider] || config.activeProvider;
+  const modelLine = `  AI     : Whisper (local) + ${providerName}`;
   console.log('╔══════════════════════════════════════════╗');
   console.log('║        Speakr — Voice to Text Pro        ║');
   console.log('╠══════════════════════════════════════════╣');
   console.log('║  Hotkey : RightOpt + RightShift — toggle ║');
-  console.log('║  Model  : Gemini Flash                   ║');
+  console.log(`║${modelLine.padEnd(42)}║`);
   console.log('╠══════════════════════════════════════════╣');
   console.log('║  Modes:                                  ║');
   console.log('║    "email"    — professional email       ║');
@@ -78,13 +80,13 @@ async function onRelease() {
   console.log(`[processed] "${text}" [mode: ${mode}]`);
   console.log('');
 
-  const aiSpinner = ora('Improving with Gemini...').start();
+  const aiSpinner = ora('Improving with Groq...').start();
   let corrected;
   try {
     corrected = await processText(text, mode);
     aiSpinner.succeed('Response ready — typing now...');
   } catch (err) {
-    aiSpinner.fail('Gemini failed: ' + err.message);
+    aiSpinner.fail('Groq failed: ' + err.message);
     return;
   }
 

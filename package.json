@@ -9,9 +9,12 @@
     "test:record": "node scripts/test-record.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.1",
     "@google/generative-ai": "^0.24.0",
     "dotenv": "^16.4.5",
+    "groq-sdk": "^1.1.2",
     "node-global-key-listener": "^0.3.0",
+    "nodejs-whisper": "^0.3.0",
     "ora": "^5.4.1"
   }
 }

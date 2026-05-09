@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(git:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(brew list:*)",
+      "Bash(brew install:*)",
+      "Bash(which:*)",
+      "Bash(sox:*)",
+      "Bash(rec:*)"
+    ]
+  }
+}
