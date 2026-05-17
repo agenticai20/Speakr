@@ -4,7 +4,7 @@ const { startRecording, stopRecording, isRecording } = require('./recorder');
 const { transcribe } = require('./transcriber');
 const { preProcess } = require('./preprocessor');
 const { processText } = require('./ai');
-const { typeText } = require('./typer');
+const { typeText, getSelectedText } = require('./typer');
 
 const SILENCE_RE = /^(\[silence\]|\[no speech\]|\[inaudible\]|silence)$/i;
 
@@ -16,22 +16,24 @@ function printBanner() {
   const config = require('./config');
   const providerName = { groq: 'Groq', gemini: 'Gemini', claude: 'Claude' }[config.activeProvider] || config.activeProvider;
   const modelLine = `  AI     : Whisper (local) + ${providerName}`;
-  console.log('╔══════════════════════════════════════════╗');
-  console.log('║        Speakr — Voice to Text Pro        ║');
-  console.log('╠══════════════════════════════════════════╣');
-  console.log('║  Hotkey : RightOpt + RightShift — toggle ║');
-  console.log(`║${modelLine.padEnd(42)}║`);
-  console.log('╠══════════════════════════════════════════╣');
-  console.log('║  Modes:                                  ║');
-  console.log('║    "email"    — professional email       ║');
-  console.log('║    "message"  — casual team chat         ║');
-  console.log('║    "note"     — bullet-point notes       ║');
-  console.log('║    (default)  — grammar & spelling       ║');
-  console.log('╚══════════════════════════════════════════╝');
+  console.log('╔═════════════════════════════════════════════════╗');
+  console.log('║           Speakr — Voice to Text Pro            ║');
+  console.log('╠═════════════════════════════════════════════════╣');
+  console.log('║  Dictate : RightOpt + RightShift — toggle       ║');
+  console.log('║  Fix Text: Double-Tap Left Ctrl  — grammar      ║');
+  console.log(`║${modelLine.padEnd(49)}║`);
+  console.log('╠═════════════════════════════════════════════════╣');
+  console.log('║  Modes:                                         ║');
+  console.log('║    "email"    — professional email              ║');
+  console.log('║    "message"  — casual team chat                ║');
+  console.log('║    "note"     — bullet-point notes              ║');
+  console.log('║    (default)  — grammar & spelling              ║');
+  console.log('╚═════════════════════════════════════════════════╝');
   console.log('');
 }
 
 let recSpinner = null;
+let isProcessing = false;
 
 async function onPress() {
   try {
@@ -106,11 +108,59 @@ async function onRelease() {
   showReadyPrompt();
 }
 
+async function onFixGrammar() {
+  if (isProcessing) return;
+  isProcessing = true;
+  
+  const fixSpinner = ora('Reading selected text...').start();
+  let text = '';
+  try {
+    text = await getSelectedText();
+  } catch (err) {
+    fixSpinner.fail('Failed to read selected text: ' + err.message);
+    return;
+  }
+
+  if (!text) {
+    fixSpinner.fail('No text selected.');
+    showReadyPrompt();
+    isProcessing = false;
+    return;
+  }
+
+  fixSpinner.text = 'Fixing grammar with AI...';
+  let corrected;
+  try {
+    corrected = await processText(text, 'default');
+    fixSpinner.succeed('Grammar fixed — replacing text now...');
+  } catch (err) {
+    fixSpinner.fail('AI failed: ' + err.message);
+    isProcessing = false;
+    return;
+  }
+
+  const preview = corrected.length > 100 ? corrected.slice(0, 97) + '...' : corrected;
+  console.log('');
+  console.log(`  Result: "${preview}"`);
+  console.log('');
+
+  try {
+    await typeText(corrected);
+    ora('').succeed('Done!\n');
+  } catch (err) {
+    console.error('Paste failed:', err.message);
+    console.log('Text is in your clipboard — paste manually with Cmd+V.\n');
+  }
+
+  showReadyPrompt();
+  isProcessing = false;
+}
+
 function showReadyPrompt() {
   console.log('');
   ora({ prefixText: '○' }).stopAndPersist({
     symbol: '○',
-    text: 'Ready — hold RightOpt + press RightShift to record',
+    text: 'Ready — RightOpt+RightShift to record, Double-Tap Left Ctrl to fix text',
   });
   console.log('');
 }
@@ -122,6 +172,7 @@ function main() {
   setupHotkey(
     () => onPress().catch((err) => console.error('Unexpected error:', err.message)),
     () => onRelease().catch((err) => console.error('Unexpected error:', err.message)),
+    () => onFixGrammar().catch((err) => console.error('Unexpected error:', err.message))
   );
 
   process.on('SIGINT', () => {

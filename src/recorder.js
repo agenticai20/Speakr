@@ -35,12 +35,14 @@ function stopRecording() {
   return new Promise((resolve, reject) => {
     if (!proc) return reject(new Error('Not recording'));
 
-    proc.on('close', () => {
-      proc = null;
+    const currentProc = proc;
+    proc = null;
+
+    currentProc.on('close', () => {
       resolve(config.recording.tempFile);
     });
 
-    proc.kill('SIGTERM');
+    currentProc.kill('SIGTERM');
   });
 }
 
